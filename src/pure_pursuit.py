@@ -117,9 +117,19 @@ class PurePursuit(object):
         return seg_start + soln_param * seg_v
     
     def lookahead_to_drive(self, pose, segment):
+        """ Takes an odometry message of car location and index of nearest trajectory
+        segment and publishes a drive command to navigate the car to the closest 
+        line segment.
+        """
         world_point = self.lookahead_intersection(pose, segment)
         displacement = world_point - pose
-        # Convert 
+        # Convert to world frame
+        quat = pose.pose.pose.orientation
+        thetas = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+        theta = thetas[2]
+        rot_matrix = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
+        relative_displacement = np.matmul(np.linalg.inv(rot_matrix), displacement)
+        self.pursuit_drive_callback(relative_displacement)
 
     
     def validPoint(self, point): 
