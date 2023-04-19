@@ -95,7 +95,7 @@ class PathPlan(object):
     def check_valid(self, neighbors, map):
         valid_neighbors = []
         for neighbor in neighbors:
-            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] != 1:
+            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] != 100:
                 valid_neighbors.append(neighbor)
         return valid_neighbors
 
