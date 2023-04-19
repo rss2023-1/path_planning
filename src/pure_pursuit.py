@@ -19,6 +19,7 @@ class PurePursuit(object):
         self.lookahead        = rospy.get_param("~lookahead_dist")
         self.speed            = rospy.get_param("~pursuit_speed")
         self.wheelbase_length = 0.2 #measure this for sure
+        self.parking_distance = 0
         self.trajectory  = utils.LineTrajectory("/followed_trajectory")
         self.traj_sub = rospy.Subscriber("/trajectory/current", PoseArray, self.trajectory_callback, queue_size=1)
         self.traj_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odometry_callback, queue_size=1)
@@ -72,9 +73,9 @@ class PurePursuit(object):
     def lookahead_intersection(self, pose, segment):
         """
         Takes in pose as Odometry msg and a line segment index in the list of 
-        poses for the trajectory. Returns intersection point of the closest trajectory
-        that intersects with a circle of radius `self.lookahead_dist` centered on
-        pose.
+        poses for the trajectory. Returns intersection point of the closest trajectory segment
+        after the `segment` index that intersects with a circle of radius `self.lookahead_dist`
+        centered on pose.
         Intersection equation: 
         https://codereview.stackexchange.com/questions/86421/line-segment-to-circle-collision-algorithm/86428#86428
         """
@@ -100,14 +101,87 @@ class PurePursuit(object):
             if not (0 <= t1 <= 1 or 0 <= t2 <= 1):
                 # intersection outside of line segment, continue
                 continue
-            soln_param = t1
+            soln_param = 0
             if (0 <= t1 <= 1 and 0 <= t2 <= 1):
                 # edge case, currently return t1
+                soln_param = t1
                 print("edge case!")
-            else (0 <= t2 <= 1):
+            elif (0 <= t1 <= 1):
+                soln_param = t1
+            elif (0 <= t2 <= 1):
                 # t2 is our intersection point
                 soln_param = t2
+        if (soln_param == 0):
+            # failure, no line segment within lookahead distance
+            return np.array([-1, -1])
         return seg_start + soln_param * seg_v
+    
+    def lookahead_to_drive(self, pose, segment):
+        """ Takes an odometry message of car location and index of nearest trajectory
+        segment and publishes a drive command to navigate the car to the closest 
+        line segment.
+        """
+        world_point = self.lookahead_intersection(pose, segment)
+        displacement = world_point - pose
+        # Convert to world frame
+        quat = pose.pose.pose.orientation
+        thetas = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
+        theta = thetas[2]
+        rot_matrix = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
+        relative_displacement = np.matmul(np.linalg.inv(rot_matrix), displacement)
+        self.pursuit_drive_callback(relative_displacement)
+
+    
+    def validPoint(self, point): 
+        """
+        Currently a failure detector for pursuit driving. Checks if
+        point output by lookahead_intersection is invalid.
+        """
+        return not (point[0] == -1.0 and point[1] == -1.0)
+    
+    def pursuit_drive_callback(self, goal_point):
+        """ Given a goal point, issues a drive command to the racecar to bring it closer.
+        Goal point must be the relative distance from the front of the car.
+        """
+        self.relative_x = goal_point[0]
+        self.relative_y = goal_point[1]
+        drive_cmd = AckermannDriveStamped()
+        drive_cmd.header.stamp = rospy.Time.now()
+        drive_cmd.header.frame_id = 'constant'
+        drive_cmd.drive.speed = self.speed
+
+        if self.reverse < self.reverse_time: # Check if reversing
+            drive_cmd.drive.speed = self.reverse_speed
+            self.reverse = self.reverse + 1
+        else:
+            theta = np.arctan2(self.relative_y, self.relative_x)
+            dist = np.sqrt(self.relative_x**2+self.relative_y**2)
+
+            if self.validPoint(goal_point):
+                if abs(dist-self.parking_distance) < 0.05 and abs(theta) <= 0.05: # If within distance and angle tolerenace, park
+                    drive_cmd.drive.speed = 0
+                    drive_cmd.drive.acceleration = 0
+                    drive_cmd.drive.jerk = 0
+                elif dist > self.parking_distance: # If away from cone, control theta proportionally to align upon closing gap
+                    if dist > self.parking_distance:
+                        if theta != 0:
+                            drive_cmd.drive.steering_angle = theta
+                        else:
+                            drive_cmd.drive.steering_angle = 0
+                elif dist < self.parking_distance and abs(theta) <= 0.05: # If too close too cone but aligned, back up
+                    drive_cmd.drive.steering_angle = 0
+                    drive_cmd.drive.speed = self.reverse_speed
+                else: # Too close and not aligned, reverse for a few timesteps then retry
+                    drive_cmd.drive.speed = self.reverse_speed
+                    self.reverse = 0           
+            else: # Cone not within FOV, drive in a circle to find
+                drive_cmd.drive.steering_angle = 0.34 # max steering angle
+                # This can get stuck in a circle if the cone is placed directly to the left of the wheel
+                # as a result of max turning radius and camera FOV. This may be resolved if the actual 
+                # camera has a wider FOV, though this could be solved in code by iterating a value everytime
+                # this runs and setting it to 0 otherwise. If the value is exceeded, circle times out and a right
+                # steer should be briefly published to offset circle and find the cone. I'm too lazy to implement
+                # it rn though lol.
         
 
 

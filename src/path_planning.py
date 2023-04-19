@@ -105,8 +105,13 @@ class PathPlan(object):
     def check_valid(self, neighbors, map):
         valid_neighbors = []
         for neighbor in neighbors:
+<<<<<<< HEAD
             if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[np.asarray(neighbor)] != 1:
                 valid_neighbors.append(np.asarray(neighbor))
+=======
+            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] != 100:
+                valid_neighbors.append(neighbor)
+>>>>>>> bffcc9356ae1788e1af1025626d45ef67255bd12
         return valid_neighbors
 
     def backtrack(self, cameFrom, end_point):
