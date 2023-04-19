@@ -36,12 +36,13 @@ class PathPlan(object):
         world_point = (x, y)
         return world_point
 
-    def convert_real_to_pix(self, x, y):
+    def convert_real_to_pix(self, world_point):
+        x, y = world_point
         x1 = x - self.pos[0]
         y1 = y - self.pos[1]
         u = x1 / self.res
         v = y1 / self.res
-        return u, v
+        return (u, v)
 
 
     def map_cb(self, msg):
