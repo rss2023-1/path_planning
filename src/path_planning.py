@@ -31,15 +31,15 @@ class PathPlan(object):
         u, v = pixel_point
         u1 = u*self.res
         v1 = v*self.res
-        x = u1 + self.pos[0]
-        y = v1 + self.pos[1]
+        x = u1 + self.pos.x
+        y = v1 + self.pos.y
         world_point = (x, y)
         return world_point
 
     def convert_real_to_pix(self, world_point):
         x, y = world_point
-        x1 = x - self.pos[0]
-        y1 = y - self.pos[1]
+        x1 = x - self.pos.x
+        y1 = y - self.pos.y
         u = x1 / self.res
         v = y1 / self.res
         return (u, v)
@@ -53,14 +53,14 @@ class PathPlan(object):
         self.wid =  msg.info.width
         self.hei =  msg.info.height
 
-        """
-        print("d", data)
-        print("d len1", type(data), len(data))
         
-        print("r", res)
-        print("o", ori)
-        print("p", pos) 
-        """
+        #print("d", data)
+        #print("d len1", type(data), len(data))
+        
+        print("r", self.res)
+        print("o", self.ori)
+        print("p", self.pos) 
+        
 
         arr = np.array(data)
         arr = np.reshape(arr, (self.hei, self.wid))
@@ -70,12 +70,22 @@ class PathPlan(object):
 
 
     def odom_cb(self, msg):
-        self.cur_pos = msg
-        print(msg)
+        pos = msg.pose.pose.position
+        x = pos.x
+        y = pos.y
+        self.cur_pos = (x, y)
+
+        #print("ocb", self.cur_pos)
+        
 
 
     def goal_cb(self, msg):
-        self.plan_path(self.cur_pos, msg, self.map)
+        #print("gcb", msg)
+        
+        pos = msg.pose.position
+        x = pos.x
+        y = pos.y
+        self.plan_path(self.cur_pos, (x, y), self.map)
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
@@ -95,8 +105,8 @@ class PathPlan(object):
     def check_valid(self, neighbors, map):
         valid_neighbors = []
         for neighbor in neighbors:
-            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] != 1:
-                valid_neighbors.append(neighbor)
+            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[np.asarray(neighbor)] != 1:
+                valid_neighbors.append(np.asarray(neighbor))
         return valid_neighbors
 
     def backtrack(self, cameFrom, end_point):
@@ -117,7 +127,7 @@ class PathPlan(object):
         gscore = np.ones(map.shape) * np.inf
         cameFrom = {start_point : None}
         openSet = []
-        gscore[start_point] = 0
+        gscore[np.asarray(start_point)] = 0
         
         heapq.heappush(openSet, (h(start_point), start_point))
         while len(openSet) > 0:
