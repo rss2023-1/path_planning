@@ -27,12 +27,14 @@ class PathPlan(object):
         self.ori = None
         self.pos = None
 
-    def convert_pix_to_real(self, u, v):
+    def convert_pix_to_real(self, pixel_point):
+        u, v = pixel_point
         u1 = u*self.res
         v1 = v*self.res
         x = u1 + self.pos[0]
         y = v1 + self.pos[1]
-        return x, y
+        world_point = (x, y)
+        return world_point
 
     def convert_real_to_pix(self, x, y):
         x1 = x - self.pos[0]
@@ -76,7 +78,12 @@ class PathPlan(object):
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
-        trajectory = self.a_star(start_point, end_point, map)
+        pixel_start_point = self.convert_real_to_pix(start_point)
+        pixel_end_point = self.convert_real_to_pix(end_point)
+
+        pixel_start_point = (pixel_start_point[1], pixel_start_point[0])
+        pixel_end_point = (pixel_end_point[1], pixel_end_point[0])
+        trajectory = self.a_star(pixel_start_point, pixel_end_point, map)
         self.trajectory.points = trajectory
         # publish trajectory
         self.traj_pub.publish(self.trajectory.toPoseArray())
@@ -98,7 +105,8 @@ class PathPlan(object):
             trajectory.append(cur_point)
             cur_point = cameFrom[cur_point]
         trajectory.reverse()
-        return trajectory
+        world_trajectory = [self.convert_pix_to_real(trajectory[i]) for i in range(len(trajectory))]
+        return world_trajectory
 
     def a_star(self, start_point, end_point, map):
 
