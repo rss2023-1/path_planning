@@ -1,2 +1,4 @@
 # Names of topics
 odom_topic: "pf/pose/odom"
+lookahead_dist: 0.5
+pursuit_speed: 0.5
