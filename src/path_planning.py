@@ -46,19 +46,20 @@ class PathPlan(object):
         self.res = msg.info.resolution
         self.ori = msg.info.origin.orientation
         self.pos = msg.info.origin.position
+        self.wid =  msg.info.width
+        self.hei =  msg.info.height
 
         """
         print("d", data)
         print("d len1", type(data), len(data))
-        print("wid", msg.info.width)
-        print("hei", msg.info.height)
+        
         print("r", res)
         print("o", ori)
         print("p", pos) 
         """
 
         arr = np.array(data)
-        arr = np.reshape(arr, (693, 648))
+        arr = np.reshape(arr, (self.hei, self.wid))
 
         self.map = arr
         
