@@ -22,7 +22,7 @@ class LineTrajectory(object):
         self.points = []
         self.distances = []
         self.has_acceleration = False
-        self.visualize = False
+        self.visualize = True
         self.viz_namespace = viz_namespace
 
         if viz_namespace:
