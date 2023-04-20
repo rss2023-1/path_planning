@@ -7,7 +7,7 @@ from nav_msgs.msg import Odometry, OccupancyGrid
 import rospkg
 import time, os
 from utils import LineTrajectory
-import heapq
+from heapdict import *
 
 class PathPlan(object):
     """ Listens for goal pose published by RViz and uses it to plan a path from
@@ -42,7 +42,7 @@ class PathPlan(object):
         y1 = y - self.pos.y
         u = x1 / self.res
         v = y1 / self.res
-        return (u, v)
+        return (int(np.round(u)), int(np.round(v)))
 
 
     def map_cb(self, msg):
@@ -66,6 +66,7 @@ class PathPlan(object):
         arr = np.reshape(arr, (self.hei, self.wid))
 
         self.map = arr
+        print(self.map.shape)
         
 
 
@@ -73,22 +74,20 @@ class PathPlan(object):
         pos = msg.pose.pose.position
         x = pos.x
         y = pos.y
-        self.cur_pos = (x, y)
-
-        #print("ocb", self.cur_pos)
-        
+        self.cur_pos = (x, y)        
 
 
     def goal_cb(self, msg):
-        #print("gcb", msg)
         
         pos = msg.pose.position
         x = pos.x
         y = pos.y
+        print("goal cb called")
         self.plan_path(self.cur_pos, (x, y), self.map)
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
+        print("real world start point", start_point)
         pixel_start_point = self.convert_real_to_pix(start_point)
         pixel_end_point = self.convert_real_to_pix(end_point)
 
@@ -100,7 +99,7 @@ class PathPlan(object):
         self.traj_pub.publish(self.trajectory.toPoseArray())
 
         # visualize trajectory Markers
-        self.trajectory.publish_viz()
+        self.trajectory.publish_viz(duration=5.0)
     
     def check_valid(self, neighbors, map):
         valid_neighbors = []
@@ -117,25 +116,28 @@ class PathPlan(object):
             cur_point = cameFrom[cur_point]
         trajectory.reverse()
         world_trajectory = [self.convert_pix_to_real(trajectory[i]) for i in range(len(trajectory))]
+        print(world_trajectory)
         return world_trajectory
 
     def a_star(self, start_point, end_point, map):
-
+        print("pixel start point", start_point)
         def h(point):
-            return np.linalg.norm(point - end_point)
+            return np.linalg.norm(np.asarray(point) - np.asarray(end_point))
         
         gscore = np.ones(map.shape) * np.inf
         cameFrom = {start_point : None}
-        openSet = []
-        gscore[np.asarray(start_point)] = 0
+        openSet = heapdict()
+        gscore[start_point] = 0
         
-        heapq.heappush(openSet, (h(start_point), start_point))
+        openSet[start_point] = h(start_point)
+
         while len(openSet) > 0:
-            current = heapq.heappop(openSet)
-            if current[0] == end_point:
-                return self.backtrack(cameFrom)
+            current, _ = openSet.popitem()
+            print(current)
+            if current == end_point:
+                return self.backtrack(cameFrom, end_point)
             
-            neighbors = [(start_point[0] + 1, start_point[1]), (start_point[0] - 1, start_point[1]), (start_point[0], start_point[1] + 1), (start_point[0], start_point[1] - 1)]
+            neighbors = [(current[0] + 1, current[1]), (current[0] - 1, current[1]), (current[0], current[1] + 1), (current[0], current[1] - 1)]
             neighbors = self.check_valid(neighbors, map)
             for neighbor in neighbors:
                 tentative_gscore = gscore[current] + 1
@@ -144,8 +146,7 @@ class PathPlan(object):
                     fscore = tentative_gscore + h(neighbor)
                     cameFrom[neighbor] = current
                     if neighbor not in openSet:
-                        heapq.heappush(openSet, (fscore, neighbor))
-
+                        openSet[neighbor] = fscore
                 
 
 if __name__=="__main__":
