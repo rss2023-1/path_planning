@@ -28,7 +28,7 @@ class PathPlan(object):
         self.pos = None
 
     def convert_pix_to_real(self, pixel_point):
-        u, v = pixel_point
+        v, u = pixel_point
         u1 = u*self.res
         v1 = v*self.res
         x = u1 + self.pos.x
@@ -118,12 +118,19 @@ class PathPlan(object):
             cur_point = cameFrom[cur_point]
         trajectory.reverse()
         world_trajectory = [self.convert_pix_to_real(trajectory[i]) for i in range(len(trajectory))]
+<<<<<<< HEAD
         print("world traj", world_trajectory)
         return world_trajectory
 
     def a_star(self, start_point, end_point, map):
         print("pixel start point", start_point)
         print("pixel end point", end_point)
+=======
+        print("FIRST TWO POINTS OF TRAJECTORY", world_trajectory[:2])
+        return world_trajectory
+
+    def a_star(self, start_point, end_point, map):
+>>>>>>> a6e99d17ffece0e3cd92bbbf094ac215aad2d39a
         def h(point):
             return np.linalg.norm(np.asarray(point) - np.asarray(end_point))
         
@@ -136,9 +143,12 @@ class PathPlan(object):
 
         while len(openSet) > 0:
             current, _ = openSet.popitem()
+<<<<<<< HEAD
             print("cur", current)
             print("set", openSet)
 
+=======
+>>>>>>> a6e99d17ffece0e3cd92bbbf094ac215aad2d39a
             if current == end_point:
                 return self.backtrack(cameFrom, end_point)
             

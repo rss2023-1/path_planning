@@ -126,14 +126,14 @@ class LineTrajectory(object):
 
     def publish_start_point(self, duration=0.0, scale=0.1):
         should_publish = len(self.points) > 0
-        if self.visualize and self.start_pub.get_num_connections() > 0:
+        if True:
             print "Publishing start point"
             marker = Marker()
             marker.header = self.make_header("/map")
             marker.ns = self.viz_namespace + "/trajectory"
             marker.id = 0
             marker.type = 2 # sphere
-            marker.lifetime = rospy.Duration.from_sec(duration)
+            #marker.lifetime = rospy.Duration.from_sec(duration)
             if should_publish:
                 marker.action = 0
                 marker.pose.position.x = self.points[0][0]
@@ -156,14 +156,14 @@ class LineTrajectory(object):
 
     def publish_end_point(self, duration=0.0):
         should_publish = len(self.points) > 1
-        if self.visualize and self.end_pub.get_num_connections() > 0:
+        if True:
             print "Publishing end point"
             marker = Marker()
             marker.header = self.make_header("/map")
             marker.ns = self.viz_namespace + "/trajectory"
             marker.id = 1
             marker.type = 2 # sphere
-            marker.lifetime = rospy.Duration.from_sec(duration)
+            #marker.lifetime = rospy.Duration.from_sec(duration)
             if should_publish:
                 marker.action = 0
                 marker.pose.position.x = self.points[-1][0]
@@ -186,14 +186,14 @@ class LineTrajectory(object):
 
     def publish_trajectory(self, duration=0.0):
         should_publish = len(self.points) > 1
-        if self.visualize and self.traj_pub.get_num_connections() > 0:
+        if True:
             print "Publishing trajectory"
             marker = Marker()
             marker.header = self.make_header("/map")
             marker.ns = self.viz_namespace + "/trajectory"
             marker.id = 2
             marker.type = marker.LINE_STRIP # line strip
-            marker.lifetime = rospy.Duration.from_sec(duration)
+            #marker.lifetime = rospy.Duration.from_sec(duration)
             if should_publish:
                 marker.action = marker.ADD
                 marker.scale.x = 0.3
