@@ -8,6 +8,8 @@ import rospkg
 import time, os
 from utils import LineTrajectory
 from heapdict import *
+from skimage.morphology import square
+import skimage.morphology
 
 class PathPlan(object):
     """ Listens for goal pose published by RViz and uses it to plan a path from
@@ -43,6 +45,10 @@ class PathPlan(object):
         u = x1 / self.res
         v = y1 / self.res
         return (int(np.round(u)), int(np.round(v)))
+    
+    def change_vals(val):
+        if val > 50:
+            return 1
 
 
     def map_cb(self, msg):
@@ -64,6 +70,18 @@ class PathPlan(object):
 
         arr = np.array(data)
         arr = np.reshape(arr, (self.hei, self.wid))
+
+        change_val_vec = np.vectorize(self.change_val)
+        arr_ones = change_val_vec(arr)
+
+        bright_pixel = np.array([[0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0],
+                         [0, 0, 1, 0, 0],
+                         [0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0]], dtype=np.uint8)
+    
+        skimage.morphology.dilation(bright_pixel, square(3))
+
 
         self.map = arr
         print(self.map.shape)
@@ -118,19 +136,10 @@ class PathPlan(object):
             cur_point = cameFrom[cur_point]
         trajectory.reverse()
         world_trajectory = [self.convert_pix_to_real(trajectory[i]) for i in range(len(trajectory))]
-<<<<<<< HEAD
-        print("world traj", world_trajectory)
-        return world_trajectory
-
-    def a_star(self, start_point, end_point, map):
-        print("pixel start point", start_point)
-        print("pixel end point", end_point)
-=======
         print("FIRST TWO POINTS OF TRAJECTORY", world_trajectory[:2])
         return world_trajectory
 
     def a_star(self, start_point, end_point, map):
->>>>>>> a6e99d17ffece0e3cd92bbbf094ac215aad2d39a
         def h(point):
             return np.linalg.norm(np.asarray(point) - np.asarray(end_point))
         
@@ -143,12 +152,6 @@ class PathPlan(object):
 
         while len(openSet) > 0:
             current, _ = openSet.popitem()
-<<<<<<< HEAD
-            print("cur", current)
-            print("set", openSet)
-
-=======
->>>>>>> a6e99d17ffece0e3cd92bbbf094ac215aad2d39a
             if current == end_point:
                 return self.backtrack(cameFrom, end_point)
             
