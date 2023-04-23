@@ -74,13 +74,18 @@ class PathPlan(object):
         change_val_vec = np.vectorize(self.change_val)
         arr_ones = change_val_vec(arr)
 
-        bright_pixel = np.array([[0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0],
-                         [0, 0, 1, 0, 0],
-                         [0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0]], dtype=np.uint8)
+        bright_pixel = np.array([[0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 1, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 1, 0]
+                         [0, 0, 0, 0, 0, 0, 0]
+                         ], dtype=np.uint8)
     
         skimage.morphology.dilation(bright_pixel, square(3))
+
+        print(bright_pixel)
 
 
         self.map = arr
