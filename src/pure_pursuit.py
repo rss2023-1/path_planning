@@ -15,53 +15,50 @@ class PurePursuit(object):
     """ Implements Pure Pursuit trajectory tracking with a fixed lookahead and speed.
     """
     def __init__(self):
-        self.odom_topic       = rospy.get_param("~odom_topic", "pf/pose/odom")
+        #self.odom_topic       = rospy.get_param("~odom_topic", "/odom")
+        self.odom_topic = "/odom"
+        rospy.loginfo(self.odom_topic)
         self.lookahead        = rospy.get_param("~lookahead_dist", 0.5)
         self.speed            = rospy.get_param("~pursuit_speed", 0.5)
         self.wheelbase_length = 0.2 #measure this for sure
         self.parking_distance = 0
         self.trajectory  = utils.LineTrajectory("/followed_trajectory")
         self.traj_sub = rospy.Subscriber("/trajectory/current", PoseArray, self.trajectory_callback, queue_size=1)
-        self.traj_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odometry_callback, queue_size=1)
+        self.odom_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odometry_callback, queue_size=1)
         self.drive_pub = rospy.Publisher("/drive", AckermannDriveStamped, queue_size=1)
-        self.x_values = []
-        self.y_values = []
+        self.coordinates = []
+        self.reverse_time = 5
+        self.reverse = self.reverse_time 
 
 
     def trajectory_callback(self, msg):
         ''' Clears the currently followed trajectory, and loads the new one from the message
         '''
-        print "Receiving new trajectory:", len(msg.poses), "points"
+        rospy.loginfo("Receiving new trajectory:" + str(len(msg.poses)) + "points")
         self.trajectory.clear()
         self.trajectory.fromPoseArray(msg)
         self.trajectory.publish_viz(duration=0.0)
 
+        self.coordinates = []
         # Read trajectory x and y values when initialized
         # might want to extract pose directions as well? or is just x,y sufficient
         for pose in msg.poses:
             x = pose.position.x
             y = pose.position.y
-            self.x_values.append(x)
-            self.y_values.append(y)
+            self.coordinates.append(np.asarray([x, y]))
 
-        self.x_values = np.array(self.x_values)
-        self.y_values = np.array(self.y_values)
+        self.coordinates = np.stack(self.coordinates)
+        self.endpoint = self.coordinates[-1]
 
 
     def odometry_callback(self, odom):
-        # Get path coords from traj initialization
-        path_coords = np.vstack((self.x_values, self.y_values))
         # Initialize vector containing all line segment points
-        pairs = np.zeros((2, 2*(path_coords.shape[1]-1)))
-        pairs[:, ::2] = path_coords[:, :-1]
-        pairs[:, 1::2] = path_coords[:, 1:]
+        line_segments = np.zeros((self.coordinates.shape[0] - 1, 4))
+        line_segments[:, :2] = self.coordinates[:-1, :]
+        line_segments[:, 2:4] = self.coordinates[1:, :]
 
-        # pairs = [p1, p2, p2, p3, p3, p4, ...] where p is 2x1 [x y]'
-        # for indexing, want line_segs = [[p1, p2], [p2, p3], [p3, p4], ...]
-
-        # Group pairs into line segments
-        pairst = np.transpose(pairs)
-        line_segs = pairst.reshape(-1, 2, 2)
+        #line_segments is a 4 x coordinates - 1 array, structured as follows:
+        # [x0, y0, x1, y1] where (x0, y0) is the coordinate of the first point in the line segment and (x1, y1) is the second point
 
         # Get baselink position as x, y coord
         xpos = odom.pose.pose.position.x
@@ -70,29 +67,48 @@ class PurePursuit(object):
         
         # Calculate minimum distances between current position and each line segment
         # Initialize array
-        min_distances = np.zeros(line_segs.shape[0])
+        min_distances = np.zeros(line_segments.shape[0])
+        min_points = np.zeros((line_segments.shape[0], 2))
         # Loop over each line segment
-        for i in range(line_segs.shape[0]):
+        for i in range(line_segments.shape[0]):
             # Get the starting and ending points of the line segment
-            p1 = line_segs[i, 0]
-            p2 = line_segs[i, 1]
+            p1 = line_segments[i, :2]
+            p2 = line_segments[i, 2:]
             # Compute the vector representing the line segment
             v = p2 - p1
             # Compute the vector from the starting point of the line segment to the point
             w = point - p1
             # Compute the projection of w onto v
             proj = np.dot(w, v) / np.dot(v, v) * v
+            min_points[i] = proj
             # Compute the distance between the point and the projected point
             dist = np.linalg.norm(proj - w)
             # If the projection is outside the line segment, compute the distance to the closest endpoint
             if np.dot(proj - p1, proj - p2) > 0:
                 dist = min(np.linalg.norm(point - p1), np.linalg.norm(point - p2))
+                if np.linalg.norm(point - p1) < np.linalg.norm(point - p2):
+                    min_points[i] = p1
+                else:
+                    min_points[i] = p2
             # Store the minimum distance for this line segment
             min_distances[i] = dist
         
-        print('min_dists', min_distances)
+        indices = np.argsort(min_distances)
+        sorted_line_segments = line_segments[indices]
+        goal_point = self.lookahead_intersection(point, odom.pose.pose, sorted_line_segments)
+        if self.validPoint(goal_point):
+            print("CUR POINT", point)
+            print("WORLD POINT", goal_point)
+            print("END POINT", self.endpoint)
+            robot_point = self.world_to_robot(odom.pose.pose, goal_point)
+        else:
+            robot_point = goal_point
+        self.pursuit_drive_callback(robot_point)
+        
+    def distance_to_goal(self, point):
+        return np.sqrt((point[1] - self.endpoint[1])**2 + (point[0] - self.endpoint[0])**2)
 
-    def lookahead_intersection(self, pose, segment):
+    def lookahead_intersection(self, point, pose, sorted_line_segments):
         """
         Takes in pose as Odometry msg and a line segment index in the list of 
         poses for the trajectory. Returns intersection point of the closest trajectory segment
@@ -101,58 +117,60 @@ class PurePursuit(object):
         Intersection equation: 
         https://codereview.stackexchange.com/questions/86421/line-segment-to-circle-collision-algorithm/86428#86428
         """
-        center = np.array(([pose.pose.pose.position.x, pose.pose.pose.position.y]))
+        Q = point
         r = self.lookahead
-        intersection = False
-        current_segment = segment
+        current = 0
+        current_distance = self.distance_to_goal(point)
         # We iterate through subsequent line segments after closest until intersection
-        while (not intersection and current_segment < self.x_values.size - 1):
-            seg_start = np.array([self.x_values[current_segment], self.y_values[current_segment]])
-            seg_v = np.array([self.x_values[current_segment+1], self.y_values[current_segment+1]]) - seg_start
-            current_segment += 1
-            a = np.dot(seg_v, seg_v)
-            b = 2 * np.dot(seg_v, seg_start - center)
-            c = np.dot(seg_start, seg_start) + np.dot(center, center) - 2 * np.dot(seg_start, center) - r**2
+        while current < sorted_line_segments.shape[0]:
+            P1 = sorted_line_segments[current, :2]     # Start of line segment
+            V = sorted_line_segments[current, 2:]   - P1  # Vector along line segment
+
+            a = np.dot(V, V)
+            b = 2 * np.dot(V, P1 - Q)
+            c = P1.dot(P1) + Q.dot(Q) - 2 * P1.dot(Q) - r**2
             disc = b**2 - 4 * a * c
-            if disc < 0:
-                # no solution, continue to next segment
-                continue
-            sqrt_disc = np.sqrt(disc)
-            t1 = (-b + sqrt_disc) / (2 * a)
-            t2 = (-b - sqrt_disc) / (2 * a)
-            if not (0 <= t1 <= 1 or 0 <= t2 <= 1):
-                # intersection outside of line segment, continue
-                continue
-            soln_param = 0
-            if (0 <= t1 <= 1 and 0 <= t2 <= 1):
-                # edge case, currently return t1
-                soln_param = t1
-                print("edge case!")
-            elif (0 <= t1 <= 1):
-                soln_param = t1
-            elif (0 <= t2 <= 1):
-                # t2 is our intersection point
-                soln_param = t2
-        if (soln_param == 0):
-            # failure, no line segment within lookahead distance
-            return np.array([-1, -1])
-        return seg_start + soln_param * seg_v
+
+            if disc > 0:
+                sqrt_disc = np.sqrt(disc)
+                t1 = (-b + sqrt_disc) / (2 * a)
+                t2 = (-b - sqrt_disc) / (2 * a)
+                distance_t1 = np.inf
+                distance_t2 = np.inf
+                point1 = None
+                point2 = None
+                if 0 <= t2 <= 1:
+                    point2 = P1 + t2 * V
+                    distance_t2 = self.distance_to_goal(point2)
+
+                if 0 <= t1 <= 1:
+                    point1 = P1 + t1 * V
+                    distance_t1 = self.distance_to_goal(point1)
+                
+                distances = [distance_t1, distance_t2]
+                points = [point1, point2]
+                if distances[np.argmin(distances)] != np.inf:
+                    print("POINTS", points, "DISTANCES", distances)
+                    return points[np.argmin(distances)]
+
+            current += 1
+        rospy.loginfo("FAILED")
+        r += 0.5
+        return [-1, -1]
+
     
-    def lookahead_to_drive(self, pose, segment):
-        """ Takes an odometry message of car location and index of nearest trajectory
-        segment and publishes a drive command to navigate the car to the closest 
+    def world_to_robot(self, robot_pose, world_point):
+        """ Takes an odometry message of car location and goal point on closest  and publishes a drive command to navigate the car to the closest 
         line segment.
         """
-        world_point = self.lookahead_intersection(pose, segment)
-        displacement = world_point - pose
+        displacement = np.asarray([world_point[0] - robot_pose.position.x, world_point[1] - robot_pose.position.y])
         # Convert to world frame
-        quat = pose.pose.pose.orientation
+        quat = robot_pose.orientation
         thetas = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
         theta = thetas[2]
         rot_matrix = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
-        relative_displacement = np.matmul(np.linalg.inv(rot_matrix), displacement)
-        self.pursuit_drive_callback(relative_displacement)
-
+        robot_point = np.matmul(np.linalg.inv(rot_matrix), displacement)
+        return robot_point
     
     def validPoint(self, point): 
         """
@@ -162,6 +180,7 @@ class PurePursuit(object):
         return not (point[0] == -1.0 and point[1] == -1.0)
     
     def pursuit_drive_callback(self, goal_point):
+        print("GOAL POINT" + str(goal_point))
         """ Given a goal point, issues a drive command to the racecar to bring it closer.
         Goal point must be the relative distance from the front of the car.
         """
@@ -181,15 +200,13 @@ class PurePursuit(object):
 
             if self.validPoint(goal_point):
                 if abs(dist-self.parking_distance) < 0.05 and abs(theta) <= 0.05: # If within distance and angle tolerenace, park
+                    print("PARKING THIS SHOULDNT HAPPEN")
                     drive_cmd.drive.speed = 0
                     drive_cmd.drive.acceleration = 0
                     drive_cmd.drive.jerk = 0
                 elif dist > self.parking_distance: # If away from cone, control theta proportionally to align upon closing gap
-                    if dist > self.parking_distance:
-                        if theta != 0:
-                            drive_cmd.drive.steering_angle = theta
-                        else:
-                            drive_cmd.drive.steering_angle = 0
+                    print("CONTROLLING THETA", theta)
+                    drive_cmd.drive.steering_angle = theta
                 elif dist < self.parking_distance and abs(theta) <= 0.05: # If too close too cone but aligned, back up
                     drive_cmd.drive.steering_angle = 0
                     drive_cmd.drive.speed = self.reverse_speed
@@ -204,7 +221,7 @@ class PurePursuit(object):
                 # this runs and setting it to 0 otherwise. If the value is exceeded, circle times out and a right
                 # steer should be briefly published to offset circle and find the cone. I'm too lazy to implement
                 # it rn though lol.
-        
+        self.drive_pub.publish(drive_cmd)
 
 
 
