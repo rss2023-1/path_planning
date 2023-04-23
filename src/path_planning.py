@@ -46,7 +46,7 @@ class PathPlan(object):
         v = y1 / self.res
         return (int(np.round(u)), int(np.round(v)))
     
-    def change_vals(val):
+    def change_vals(self, val):
         if val > 50:
             return 1
 
