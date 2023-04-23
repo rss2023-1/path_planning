@@ -46,7 +46,7 @@ class PathPlan(object):
         v = y1 / self.res
         return (int(np.round(u)), int(np.round(v)))
     
-    def change_vals(self, val):
+    def change_val(self, val):
         if val > 50:
             return 1
 
@@ -79,13 +79,13 @@ class PathPlan(object):
                          [0, 0, 1, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 1, 0]
+                         [0, 0, 0, 0, 0, 1, 0],
                          [0, 0, 0, 0, 0, 0, 0]
                          ], dtype=np.uint8)
     
         skimage.morphology.dilation(bright_pixel, square(3))
 
-        print(bright_pixel)
+        print("dilated", bright_pixel)
 
 
         self.map = arr
