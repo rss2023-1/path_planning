@@ -10,6 +10,8 @@ from geometry_msgs.msg import PoseArray, PoseStamped
 from visualization_msgs.msg import Marker
 from ackermann_msgs.msg import AckermannDriveStamped
 from nav_msgs.msg import Odometry
+from visualization_msgs.msg import Marker
+from std_msgs.msg import Header
 
 class PurePursuit(object):
     """ Implements Pure Pursuit trajectory tracking with a fixed lookahead and speed.
@@ -18,7 +20,7 @@ class PurePursuit(object):
         #self.odom_topic       = rospy.get_param("~odom_topic", "/odom")
         self.odom_topic = "/odom"
         rospy.loginfo(self.odom_topic)
-        self.lookahead        = rospy.get_param("~lookahead_dist", 0.5)
+        self.lookahead        = 1.0
         self.speed            = rospy.get_param("~pursuit_speed", 0.5)
         self.wheelbase_length = 0.2 #measure this for sure
         self.parking_distance = 0
@@ -26,9 +28,13 @@ class PurePursuit(object):
         self.traj_sub = rospy.Subscriber("/trajectory/current", PoseArray, self.trajectory_callback, queue_size=1)
         self.odom_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odometry_callback, queue_size=1)
         self.drive_pub = rospy.Publisher("/drive", AckermannDriveStamped, queue_size=1)
+        self.viz_point = rospy.Publisher("/vizpoint", Marker, queue_size=1)
         self.coordinates = []
         self.reverse_time = 5
         self.reverse = self.reverse_time 
+        self.parking_distance = .1 # meters; try playing with this number!
+        self.forward_speed = 0.5
+        self.reverse_speed = -0.5
 
 
     def trajectory_callback(self, msg):
@@ -94,21 +100,18 @@ class PurePursuit(object):
             min_distances[i] = dist
         
         indices = np.argsort(min_distances)
-        sorted_line_segments = line_segments[indices]
-        goal_point = self.lookahead_intersection(point, odom.pose.pose, sorted_line_segments)
+        goal_point = self.lookahead_intersection(point, indices, line_segments)
         if self.validPoint(goal_point):
-            print("CUR POINT", point)
-            print("WORLD POINT", goal_point)
-            print("END POINT", self.endpoint)
             robot_point = self.world_to_robot(odom.pose.pose, goal_point)
+            print("GOAL POINT", goal_point, "ROBOT POINT", robot_point)
         else:
             robot_point = goal_point
         self.pursuit_drive_callback(robot_point)
         
-    def distance_to_goal(self, point):
-        return np.sqrt((point[1] - self.endpoint[1])**2 + (point[0] - self.endpoint[0])**2)
+    def distance_to_goal(self, point, goal):
+        return np.sqrt((point[1] - goal[1])**2 + (point[0] - goal[0])**2)
 
-    def lookahead_intersection(self, point, pose, sorted_line_segments):
+    def lookahead_intersection(self, point, indices, line_segments):
         """
         Takes in pose as Odometry msg and a line segment index in the list of 
         poses for the trajectory. Returns intersection point of the closest trajectory segment
@@ -120,9 +123,11 @@ class PurePursuit(object):
         Q = point
         r = self.lookahead
         current = 0
-        current_distance = self.distance_to_goal(point)
         # We iterate through subsequent line segments after closest until intersection
+        sorted_line_segments = line_segments[indices]
         while current < sorted_line_segments.shape[0]:
+            cur_index = indices[current]
+
             P1 = sorted_line_segments[current, :2]     # Start of line segment
             V = sorted_line_segments[current, 2:]   - P1  # Vector along line segment
 
@@ -141,16 +146,16 @@ class PurePursuit(object):
                 point2 = None
                 if 0 <= t2 <= 1:
                     point2 = P1 + t2 * V
-                    distance_t2 = self.distance_to_goal(point2)
+                    distance_t2 = self.distance_to_goal(point2, line_segments[cur_index + 1, :2])
 
                 if 0 <= t1 <= 1:
                     point1 = P1 + t1 * V
-                    distance_t1 = self.distance_to_goal(point1)
+                    distance_t1 = self.distance_to_goal(point1, line_segments[cur_index + 1, :2])
                 
                 distances = [distance_t1, distance_t2]
                 points = [point1, point2]
-                if distances[np.argmin(distances)] != np.inf:
-                    print("POINTS", points, "DISTANCES", distances)
+                if distances[np.argmin(distances)] < np.inf:
+                    self.publish_point(points[np.argmin(distances)])
                     return points[np.argmin(distances)]
 
             current += 1
@@ -158,6 +163,34 @@ class PurePursuit(object):
         r += 0.5
         return [-1, -1]
 
+    def make_header(self, frame_id, stamp=None):
+        if stamp == None:
+            stamp = rospy.Time.now()
+        header = Header()
+        header.stamp = stamp
+        header.frame_id = frame_id
+        return header
+
+    def publish_point(self, point):
+        marker = Marker()
+        marker.header = self.make_header("/map")
+        marker.ns = "/vizpoint"
+        marker.id = 0
+        marker.type = 2 # sphere
+        #marker.lifetime = rospy.Duration.from_sec(duration)
+        marker.action = 0
+        marker.pose.position.x = point[0]
+        marker.pose.position.y = point[1]
+        marker.pose.orientation.w = 1.0
+        marker.scale.x = 1.0
+        marker.scale.y = 1.0
+        marker.scale.z = 1.0
+        marker.color.r = 0.0
+        marker.color.g = 0.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+
+        self.viz_point.publish(marker)
     
     def world_to_robot(self, robot_pose, world_point):
         """ Takes an odometry message of car location and goal point on closest  and publishes a drive command to navigate the car to the closest 
@@ -169,7 +202,7 @@ class PurePursuit(object):
         thetas = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
         theta = thetas[2]
         rot_matrix = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
-        robot_point = np.matmul(np.linalg.inv(rot_matrix), displacement)
+        robot_point = np.matmul(rot_matrix, displacement)
         return robot_point
     
     def validPoint(self, point): 
@@ -180,7 +213,6 @@ class PurePursuit(object):
         return not (point[0] == -1.0 and point[1] == -1.0)
     
     def pursuit_drive_callback(self, goal_point):
-        print("GOAL POINT" + str(goal_point))
         """ Given a goal point, issues a drive command to the racecar to bring it closer.
         Goal point must be the relative distance from the front of the car.
         """
@@ -189,7 +221,13 @@ class PurePursuit(object):
         drive_cmd = AckermannDriveStamped()
         drive_cmd.header.stamp = rospy.Time.now()
         drive_cmd.header.frame_id = 'constant'
-        drive_cmd.drive.speed = self.speed
+        
+        drive_cmd.drive.speed = self.forward_speed
+
+        #################################
+
+        # YOUR CODE HERE
+        # Use relative position and your control law to set drive_cmd
 
         if self.reverse < self.reverse_time: # Check if reversing
             drive_cmd.drive.speed = self.reverse_speed
@@ -199,13 +237,12 @@ class PurePursuit(object):
             dist = np.sqrt(self.relative_x**2+self.relative_y**2)
 
             if self.validPoint(goal_point):
+                print("THETA", theta)
                 if abs(dist-self.parking_distance) < 0.05 and abs(theta) <= 0.05: # If within distance and angle tolerenace, park
-                    print("PARKING THIS SHOULDNT HAPPEN")
                     drive_cmd.drive.speed = 0
                     drive_cmd.drive.acceleration = 0
                     drive_cmd.drive.jerk = 0
                 elif dist > self.parking_distance: # If away from cone, control theta proportionally to align upon closing gap
-                    print("CONTROLLING THETA", theta)
                     drive_cmd.drive.steering_angle = theta
                 elif dist < self.parking_distance and abs(theta) <= 0.05: # If too close too cone but aligned, back up
                     drive_cmd.drive.steering_angle = 0
