@@ -17,9 +17,10 @@ class PurePursuit(object):
     """ Implements Pure Pursuit trajectory tracking with a fixed lookahead and speed.
     """
     def __init__(self):
-        self.odom_topic       = rospy.get_param("~odom_topic", "/odom")
-        self.lookahead        = rospy.get_param("~lookahead_dist", 0.5)
-        self.speed            = rospy.get_param("~pursuit_speed", 0.5)
+        self.odom_topic       = rospy.get_param("~odom_topic", "/pf/pose/odom")
+        #self.odom_topic       = "/odom"
+        self.lookahead        = rospy.get_param("~lookahead_dist", 1.0)
+        self.speed            = rospy.get_param("~pursuit_speed", 1.0)
         self.wheelbase_length = 0.2 #measure this for sure
         self.parking_distance = 0
         self.trajectory  = utils.LineTrajectory("/followed_trajectory")
@@ -31,7 +32,6 @@ class PurePursuit(object):
         self.reverse_time = 5
         self.reverse = self.reverse_time 
         self.parking_distance = .1 # meters; try playing with this number!
-        self.forward_speed = 0.5
         self.reverse_speed = -0.5
 
 
@@ -98,7 +98,7 @@ class PurePursuit(object):
             min_distances[i] = dist
         
         indices = np.argsort(min_distances)
-        goal_point = self.lookahead_intersection(point, indices, line_segments)
+        goal_point = self.lookahead_intersection(point, indices, line_segments, odom.pose.pose)
         if self.validPoint(goal_point):
             robot_point = self.world_to_robot(odom.pose.pose, goal_point)
             print("GOAL POINT", goal_point, "ROBOT POINT", robot_point)
@@ -109,7 +109,7 @@ class PurePursuit(object):
     def distance_to_goal(self, point, goal):
         return np.sqrt((point[1] - goal[1])**2 + (point[0] - goal[0])**2)
 
-    def lookahead_intersection(self, point, indices, line_segments):
+    def lookahead_intersection(self, point, indices, line_segments, robot_pose):
         """
         Takes in pose as Odometry msg and a line segment index in the list of 
         poses for the trajectory. Returns intersection point of the closest trajectory segment
@@ -144,15 +144,21 @@ class PurePursuit(object):
                 point2 = None
                 if 0 <= t2 <= 1:
                     point2 = P1 + t2 * V
-                    distance_t2 = self.distance_to_goal(point2, line_segments[cur_index + 1, :2])
+                    relative_pt2 = self.world_to_robot(robot_pose, point2)
+                    if (relative_pt2[0] > 0):
+                        distance_t2 = self.distance_to_goal(point2, line_segments[-1, 2:4])
 
                 if 0 <= t1 <= 1:
                     point1 = P1 + t1 * V
-                    distance_t1 = self.distance_to_goal(point1, line_segments[cur_index + 1, :2])
-                print("heuristic distance", line_segments[cur_index + 1, :2])
+                    relative_pt1 = self.world_to_robot(robot_pose, point1)
+                    if (relative_pt1[0] > 0):
+                        distance_t1 = self.distance_to_goal(point1, line_segments[-1, 2:4])
+                #print("heuristic distance", line_segments[cur_index + 1, :2])
+                # Heuristic: parameter that describes a point "farther along" the trajectory
                 distances = [distance_t1, distance_t2]
                 points = [point1, point2]
                 if distances[np.argmin(distances)] < np.inf:
+                    print("bruh")
                     self.publish_point(points[np.argmin(distances)])
                     return points[np.argmin(distances)]
 
@@ -196,13 +202,16 @@ class PurePursuit(object):
         """
         displacement = np.asarray([world_point[0] - robot_pose.position.x, world_point[1] - robot_pose.position.y])
         # Convert to world frame
+        rot_matrix = self.rot_matrix(robot_pose)
+        robot_point = np.matmul(rot_matrix, displacement)
+        return robot_point
+
+    def rot_matrix(self, robot_pose):
         quat = robot_pose.orientation
         thetas = tf.transformations.euler_from_quaternion([quat.x, quat.y, quat.z, quat.w])
         theta = thetas[2]
-        rot_matrix = np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
-        robot_point = np.matmul(rot_matrix, displacement)
-        return robot_point
-    
+        return np.array([[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]])
+
     def validPoint(self, point): 
         """
         Currently a failure detector for pursuit driving. Checks if
@@ -220,7 +229,7 @@ class PurePursuit(object):
         drive_cmd.header.stamp = rospy.Time.now()
         drive_cmd.header.frame_id = 'constant'
         
-        drive_cmd.drive.speed = self.forward_speed
+        drive_cmd.drive.speed = self.speed
 
         #################################
 
