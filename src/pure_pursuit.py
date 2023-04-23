@@ -17,10 +17,8 @@ class PurePursuit(object):
     """ Implements Pure Pursuit trajectory tracking with a fixed lookahead and speed.
     """
     def __init__(self):
-        #self.odom_topic       = rospy.get_param("~odom_topic", "/odom")
-        self.odom_topic = "/odom"
-        rospy.loginfo(self.odom_topic)
-        self.lookahead        = 1.0
+        self.odom_topic       = rospy.get_param("~odom_topic", "/odom")
+        self.lookahead        = rospy.get_param("~lookahead_dist", 0.5)
         self.speed            = rospy.get_param("~pursuit_speed", 0.5)
         self.wheelbase_length = 0.2 #measure this for sure
         self.parking_distance = 0
@@ -151,7 +149,7 @@ class PurePursuit(object):
                 if 0 <= t1 <= 1:
                     point1 = P1 + t1 * V
                     distance_t1 = self.distance_to_goal(point1, line_segments[cur_index + 1, :2])
-                
+                print("heuristic distance", line_segments[cur_index + 1, :2])
                 distances = [distance_t1, distance_t2]
                 points = [point1, point2]
                 if distances[np.argmin(distances)] < np.inf:
