@@ -67,25 +67,46 @@ class PathPlan(object):
         print("o", self.ori)
         print("p", self.pos) 
         
+        #print("data whole", data)
 
-        arr = np.array(data)
+        
+
+        arr = np.array(data, dtype = np.uint8)
         arr = np.reshape(arr, (self.hei, self.wid))
+        #print("hei", self.hei, "wid", self.wid)
 
-        change_val_vec = np.vectorize(self.change_val)
-        arr_ones = change_val_vec(arr)
+        uni, counts = np.unique(arr, return_counts=True)
+        #print("counts", dict(zip(uni, counts)))
+
+        #change_val_vec = np.vectorize(self.change_val)
+        #arr_ones = self.change_val(arr)
+
+
+        #arr[(arr < 50)] = 0
+        #arr[(arr >= 50)] = 1
+
+        #print("arr whole", arr)
+        #print("arr part", arr[1::2, 1::2])
+        
+
+        arr_dil = skimage.morphology.dilation(arr, square(3))
+
+        #print("dil whole", arr_dil)
+        #print("dil part", arr[50])
 
         bright_pixel = np.array([[0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 1, 0, 0, 0, 0],
+                         [0, 0, 100, 0, 0, 59, 0],
                          [0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 0, 1, 0],
+                         [0, 0, 0, 0, 100, 0, 0],
+                         [0, 49, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0]
                          ], dtype=np.uint8)
+        
     
-        skimage.morphology.dilation(bright_pixel, square(3))
+        new_pixel = skimage.morphology.dilation(bright_pixel, square(3))
 
-        print("dilated", bright_pixel)
+        #print("dilated",new_pixel)
 
 
         self.map = arr
