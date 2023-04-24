@@ -30,6 +30,7 @@ class PathPlan(object):
         self.ori = None
         self.pos = None
         self.rot_mat = None
+        self.goal_pos = None
 
     def convert_pix_to_real(self, pixel_point):
         v, u = pixel_point
@@ -157,7 +158,9 @@ class PathPlan(object):
         pos = msg.pose.pose.position
         x = pos.x
         y = pos.y
-        self.cur_pos = (x, y)        
+        self.cur_pos = (x, y)   
+        if self.goal_pos != None:
+            self.plan_path(self.cur_pos, self.goal_pos, self.map)     
 
 
     def goal_cb(self, msg):
@@ -165,8 +168,10 @@ class PathPlan(object):
         pos = msg.pose.position
         x = pos.x
         y = pos.y
+        self.goal_pos = (x, y)
         #print("goal cb called")
-        self.plan_path(self.cur_pos, (x, y), self.map)
+        if self.cur_pos != None:
+            self.plan_path(self.cur_pos, self.goal_pos, self.map)
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
