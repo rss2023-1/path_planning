@@ -102,10 +102,10 @@ class PathPlan(object):
         #print("o", self.ori)
         #print("p", self.pos) 
 
-        #rot_mat = self.quaternion_matrix([self.ori.x, self.ori.y, self.ori.z, self.ori.w])
+        rot_mat = self.quaternion_matrix([self.ori.x, self.ori.y, self.ori.z, self.ori.w])
         #print("rot_mat", rot_mat)
-        #rot_mat_cut = rot_mat[:2, :2]
-        #self.rot_mat = rot_mat_cut
+        rot_mat_cut = rot_mat[:2, :2]
+        self.rot_mat = rot_mat_cut
         #print(rot_mat_cut)
         #print("data whole", data)
 
