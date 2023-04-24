@@ -109,7 +109,7 @@ class PathPlan(object):
 
         arr = np.array(data, dtype = np.uint8)
         arr = np.reshape(arr, (self.hei, self.wid))
-        print("hei", self.hei, "wid", self.wid)
+        #print("hei", self.hei, "wid", self.wid)
         
         #uni, counts = np.unique(arr, return_counts=True)
         #print("counts", dict(zip(uni, counts)))
@@ -126,25 +126,29 @@ class PathPlan(object):
         #print("arr part", arr[1::2, 1::2])
         
 
-        arr_dil = skimage.morphology.dilation(arr, square(3))
+        arr_dil = skimage.morphology.dilation(arr, square(10))
+
+        #uni, counts = np.unique(arr_dil, return_counts=True)
+        #print("counts after dil", dict(zip(uni, counts)))
 
         #print("dil whole", arr_dil)
 
 
         #print("arr part before", arr[500:530, 940:970])
         #print("dil part after", arr_dil[500:530, 940:970])
+        
         """
         bright_pixel = np.array([[0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 100, 0, 0, 59, 0],
                          [0, 0, 0, 0, 0, 0, 0],
-                         [0, 0, 0, 0, 100, 0, 0],
-                         [0, 49, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 1, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0],
+                         [0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0]
                          ], dtype=np.uint8) """
         
     
-        #new_pixel = skimage.morphology.dilation(bright_pixel, square(3))
+        #new_pixel = skimage.morphology.dilation(bright_pixel, square(6))
 
         #print("dilated",new_pixel)
 
