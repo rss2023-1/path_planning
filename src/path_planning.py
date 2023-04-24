@@ -7,7 +7,7 @@ from nav_msgs.msg import Odometry, OccupancyGrid
 import rospkg
 import time, os
 from utils import LineTrajectory
-from heapdict import *
+from heapq import heapify, heappop, heappush
 from skimage.morphology import square
 import skimage.morphology
 import math
@@ -179,7 +179,6 @@ class PathPlan(object):
         trajectory = self.a_star(pixel_start_point, pixel_end_point, map)
         self.trajectory.points = trajectory
 
-        print("traj", trajectory)
         # publish trajectory
         self.traj_pub.publish(self.trajectory.toPoseArray())
 
@@ -189,7 +188,7 @@ class PathPlan(object):
     def check_valid(self, neighbors, map):
         valid_neighbors = []
         for neighbor in neighbors:
-            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] != 100:
+            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] <= 50:
                 valid_neighbors.append(neighbor)
         return valid_neighbors
 
@@ -210,13 +209,14 @@ class PathPlan(object):
         
         gscore = np.ones(map.shape) * np.inf
         cameFrom = {start_point : None}
-        openSet = heapdict()
+        openSet = []
         gscore[start_point] = 0
         
-        openSet[start_point] = h(start_point)
+        openSetNodes = set()
+        heappush(openSet, (h(start_point), start_point))
 
         while len(openSet) > 0:
-            current, _ = openSet.popitem()
+            _, current = heappop(openSet)
             if current == end_point:
                 return self.backtrack(cameFrom, end_point)
             
@@ -228,8 +228,9 @@ class PathPlan(object):
                     gscore[neighbor] = tentative_gscore
                     fscore = tentative_gscore + h(neighbor)
                     cameFrom[neighbor] = current
-                    if neighbor not in openSet:
-                        openSet[neighbor] = fscore
+                    if neighbor not in openSetNodes:
+                        heappush(openSet, (fscore, neighbor))
+                        openSetNodes.add(neighbor)
                 
 
 if __name__=="__main__":
