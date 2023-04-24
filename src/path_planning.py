@@ -8,8 +8,8 @@ import rospkg
 import time, os
 from utils import LineTrajectory
 from heapq import heapify, heappop, heappush
-from skimage.morphology import square
-import skimage.morphology
+#from skimage.morphology import square
+#import skimage.morphology
 import math
 
 class PathPlan(object):
@@ -113,7 +113,7 @@ class PathPlan(object):
         arr = np.array(data, dtype = np.uint8)
         arr = np.reshape(arr, (self.hei, self.wid))
         #print("hei", self.hei, "wid", self.wid)
-
+        '''
         uni, counts = np.unique(arr, return_counts=True)
         #print("counts", dict(zip(uni, counts)))
 
@@ -147,7 +147,7 @@ class PathPlan(object):
 
         #print("dilated",new_pixel)
 
-
+        '''
         self.map = arr
         #print(self.map.shape)
         
