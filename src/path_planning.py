@@ -97,9 +97,9 @@ class PathPlan(object):
         #print("d", data)
         #print("d len1", type(data), len(data))
         
-        print("r", self.res)
-        print("o", self.ori)
-        print("p", self.pos) 
+        #print("r", self.res)
+        #print("o", self.ori)
+        #print("p", self.pos) 
 
         rot_mat = self.quaternion_matrix([self.ori.x, self.ori.y, self.ori.z, self.ori.w])
         #print("rot_mat", rot_mat)
@@ -149,7 +149,7 @@ class PathPlan(object):
 
 
         self.map = arr
-        print(self.map.shape)
+        #print(self.map.shape)
         
 
 
@@ -165,12 +165,12 @@ class PathPlan(object):
         pos = msg.pose.position
         x = pos.x
         y = pos.y
-        print("goal cb called")
+        #print("goal cb called")
         self.plan_path(self.cur_pos, (x, y), self.map)
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
-        print("real world start point", start_point)
+        #print("real world start point", start_point)
         pixel_start_point = self.convert_real_to_pix(start_point)
         pixel_end_point = self.convert_real_to_pix(end_point)
 
@@ -200,7 +200,7 @@ class PathPlan(object):
             cur_point = cameFrom[cur_point]
         trajectory.reverse()
         world_trajectory = [self.convert_pix_to_real(trajectory[i]) for i in range(len(trajectory))]
-        print("FIRST TWO POINTS OF TRAJECTORY", world_trajectory[:2])
+        #print("FIRST TWO POINTS OF TRAJECTORY", world_trajectory[:2])
         return world_trajectory
 
     def a_star(self, start_point, end_point, map):
