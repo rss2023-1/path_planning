@@ -26,6 +26,7 @@ class PathPlan(object):
 
         self.map = None
         self.cur_pos = None
+        self.goal_pos = None
         self.res = None
         self.ori = None
         self.pos = None
@@ -158,9 +159,16 @@ class PathPlan(object):
         pos = msg.pose.pose.position
         x = pos.x
         y = pos.y
+<<<<<<< HEAD
         self.cur_pos = (x, y)   
         if self.goal_pos != None:
             self.plan_path(self.cur_pos, self.goal_pos, self.map)     
+=======
+        self.cur_pos = (x, y)      
+        if self.goal_pos is not None:
+            print("planning path!")
+            self.plan_path(self.cur_pos, self.goal_pos, self.map)
+>>>>>>> 032e491 (fixed errors in gradescope)
 
 
     def goal_cb(self, msg):
@@ -171,7 +179,7 @@ class PathPlan(object):
         self.goal_pos = (x, y)
         #print("goal cb called")
         if self.cur_pos is not None:
-            self.plan_path(self.cur_pos, (x, y), self.map)
+            self.plan_path(self.cur_pos, self.goal_pos, self.map)
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
