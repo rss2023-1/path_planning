@@ -8,8 +8,8 @@ import rospkg
 import time, os
 from utils import LineTrajectory
 from heapq import heapify, heappop, heappush
-#from skimage.morphology import square
-#import skimage.morphology
+from skimage.morphology import square
+import skimage.morphology
 import math
 
 class PathPlan(object):
@@ -48,7 +48,7 @@ class PathPlan(object):
         return world_point
 
     def convert_real_to_pix(self, world_point):
-        #print("wp", world_point)
+        print("wp", world_point)
         x, y = world_point
         x1 = x - self.pos.x
         y1 = y - self.pos.y
@@ -62,13 +62,8 @@ class PathPlan(object):
 
         u = x2 / self.res
         v = y2 / self.res
-        #print("uv", u, v)
+        print("uv", u, v)
         return (int(np.round(u)), int(np.round(v)))
-
-    
-    def change_val(self, val):
-        if val > 50:
-            return 1
         
     def quaternion_matrix(self, quaternion):
     
@@ -114,26 +109,30 @@ class PathPlan(object):
 
         arr = np.array(data, dtype = np.uint8)
         arr = np.reshape(arr, (self.hei, self.wid))
-        #print("hei", self.hei, "wid", self.wid)
+        print("hei", self.hei, "wid", self.wid)
         
         #uni, counts = np.unique(arr, return_counts=True)
         #print("counts", dict(zip(uni, counts)))
 
-        #change_val_vec = np.vectorize(self.change_val)
-        #arr_ones = self.change_val(arr)
+        
+        arr[(arr < 50)] = 0
+        arr[(arr > 254)] = 1
+        arr[(arr >= 50)] = 1
 
-
-        #arr[(arr < 50)] = 0
-        #arr[(arr >= 50)] = 1
+        #uni, counts = np.unique(arr, return_counts=True)
+        #print("counts after", dict(zip(uni, counts)))
 
         #print("arr whole", arr)
         #print("arr part", arr[1::2, 1::2])
         
 
-        #arr_dil = skimage.morphology.dilation(arr, square(3))
+        arr_dil = skimage.morphology.dilation(arr, square(3))
 
         #print("dil whole", arr_dil)
-        #print("dil part", arr[50])
+
+
+        #print("arr part before", arr[500:530, 940:970])
+        #print("dil part after", arr_dil[500:530, 940:970])
         """
         bright_pixel = np.array([[0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0],
@@ -150,7 +149,7 @@ class PathPlan(object):
         #print("dilated",new_pixel)
 
 
-        self.map = arr
+        self.map = arr_dil
         #print(self.map.shape)
         
 
@@ -159,16 +158,10 @@ class PathPlan(object):
         pos = msg.pose.pose.position
         x = pos.x
         y = pos.y
-<<<<<<< HEAD
-        self.cur_pos = (x, y)   
-        if self.goal_pos != None:
-            self.plan_path(self.cur_pos, self.goal_pos, self.map)     
-=======
         self.cur_pos = (x, y)      
         if self.goal_pos is not None:
             print("planning path!")
             self.plan_path(self.cur_pos, self.goal_pos, self.map)
->>>>>>> 032e491 (fixed errors in gradescope)
 
 
     def goal_cb(self, msg):
