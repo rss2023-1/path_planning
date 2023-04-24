@@ -10,6 +10,7 @@ from utils import LineTrajectory
 from heapdict import *
 from skimage.morphology import square
 import skimage.morphology
+import math
 
 class PathPlan(object):
     """ Listens for goal pose published by RViz and uses it to plan a path from
@@ -28,27 +29,60 @@ class PathPlan(object):
         self.res = None
         self.ori = None
         self.pos = None
+        self.rot_mat = None
 
     def convert_pix_to_real(self, pixel_point):
         v, u = pixel_point
         u1 = u*self.res
         v1 = v*self.res
-        x = u1 + self.pos.x
-        y = v1 + self.pos.y
+        point = np.array([[u1],[v1]])
+        res = np.dot(self.rot_mat, point)
+        u2 = res[0][0]
+        v2 = res[1][0]
+
+        x = u2 + self.pos.x
+        y = v2 + self.pos.y
         world_point = (x, y)
         return world_point
 
     def convert_real_to_pix(self, world_point):
+        #print("wp", world_point)
         x, y = world_point
         x1 = x - self.pos.x
         y1 = y - self.pos.y
-        u = x1 / self.res
-        v = y1 / self.res
+
+        rot_mat_t = np.transpose(self.rot_mat)
+        point = np.array([[x1], [y1]])
+        res = np.dot(rot_mat_t, point)
+
+        x2 = res[0][0]
+        y2 = res[1][0]
+
+        u = x2 / self.res
+        v = y2 / self.res
+        #print("uv", u, v)
         return (int(np.round(u)), int(np.round(v)))
+
     
     def change_val(self, val):
         if val > 50:
             return 1
+        
+    def quaternion_matrix(self, quaternion):
+    
+        _EPS = np.finfo(float).eps * 4.0
+        q = np.array(quaternion[:4], dtype=np.float64, copy=True)
+        nq = np.dot(q, q)
+        if nq < _EPS:
+            return np.identity(4)
+        q *= math.sqrt(2.0 / nq)
+        q = np.outer(q, q)
+        return np.array((
+            (1.0-q[1, 1]-q[2, 2],     q[0, 1]-q[2, 3],     q[0, 2]+q[1, 3], 0.0),
+            (    q[0, 1]+q[2, 3], 1.0-q[0, 0]-q[2, 2],     q[1, 2]-q[0, 3], 0.0),
+            (    q[0, 2]-q[1, 3],     q[1, 2]+q[0, 3], 1.0-q[0, 0]-q[1, 1], 0.0),
+            (                0.0,                 0.0,                 0.0, 1.0)
+            ), dtype=np.float64)
 
 
     def map_cb(self, msg):
@@ -66,7 +100,12 @@ class PathPlan(object):
         print("r", self.res)
         print("o", self.ori)
         print("p", self.pos) 
-        
+
+        rot_mat = self.quaternion_matrix([self.ori.x, self.ori.y, self.ori.z, self.ori.w])
+        #print("rot_mat", rot_mat)
+        rot_mat_cut = rot_mat[:2, :2]
+        self.rot_mat = rot_mat_cut
+        #print(rot_mat_cut)
         #print("data whole", data)
 
         
