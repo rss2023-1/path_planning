@@ -170,8 +170,8 @@ class PathPlan(object):
         y = pos.y
         self.goal_pos = (x, y)
         #print("goal cb called")
-        if self.cur_pos != None:
-            self.plan_path(self.cur_pos, self.goal_pos, self.map)
+        if self.cur_pos is not None:
+            self.plan_path(self.cur_pos, (x, y), self.map)
 
     def plan_path(self, start_point, end_point, map):
         ## CODE FOR PATH PLANNING ##
