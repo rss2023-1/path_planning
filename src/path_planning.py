@@ -101,10 +101,10 @@ class PathPlan(object):
         #print("o", self.ori)
         #print("p", self.pos) 
 
-        rot_mat = self.quaternion_matrix([self.ori.x, self.ori.y, self.ori.z, self.ori.w])
+        #rot_mat = self.quaternion_matrix([self.ori.x, self.ori.y, self.ori.z, self.ori.w])
         #print("rot_mat", rot_mat)
-        rot_mat_cut = rot_mat[:2, :2]
-        self.rot_mat = rot_mat_cut
+        #rot_mat_cut = rot_mat[:2, :2]
+        #self.rot_mat = rot_mat_cut
         #print(rot_mat_cut)
         #print("data whole", data)
 
@@ -113,8 +113,8 @@ class PathPlan(object):
         arr = np.array(data, dtype = np.uint8)
         arr = np.reshape(arr, (self.hei, self.wid))
         #print("hei", self.hei, "wid", self.wid)
-        '''
-        uni, counts = np.unique(arr, return_counts=True)
+        
+        #uni, counts = np.unique(arr, return_counts=True)
         #print("counts", dict(zip(uni, counts)))
 
         #change_val_vec = np.vectorize(self.change_val)
@@ -128,11 +128,11 @@ class PathPlan(object):
         #print("arr part", arr[1::2, 1::2])
         
 
-        arr_dil = skimage.morphology.dilation(arr, square(3))
+        #arr_dil = skimage.morphology.dilation(arr, square(3))
 
         #print("dil whole", arr_dil)
         #print("dil part", arr[50])
-
+        """
         bright_pixel = np.array([[0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0],
                          [0, 0, 100, 0, 0, 59, 0],
@@ -140,14 +140,14 @@ class PathPlan(object):
                          [0, 0, 0, 0, 100, 0, 0],
                          [0, 49, 0, 0, 0, 0, 0],
                          [0, 0, 0, 0, 0, 0, 0]
-                         ], dtype=np.uint8)
+                         ], dtype=np.uint8) """
         
     
-        new_pixel = skimage.morphology.dilation(bright_pixel, square(3))
+        #new_pixel = skimage.morphology.dilation(bright_pixel, square(3))
 
         #print("dilated",new_pixel)
 
-        '''
+
         self.map = arr
         #print(self.map.shape)
         
