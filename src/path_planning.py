@@ -126,7 +126,7 @@ class PathPlan(object):
         #print("arr part", arr[1::2, 1::2])
         
 
-        arr_dil = skimage.morphology.dilation(arr, square(10))
+        arr_dil = skimage.morphology.dilation(arr, square(30))
 
         #uni, counts = np.unique(arr_dil, return_counts=True)
         #print("counts after dil", dict(zip(uni, counts)))
@@ -199,7 +199,7 @@ class PathPlan(object):
     def check_valid(self, neighbors, map):
         valid_neighbors = []
         for neighbor in neighbors:
-            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] <= 50:
+            if 0 <= neighbor[0] < map.shape[0] and 0 <= neighbor[1] < map.shape[1] and map[neighbor] == 0:
                 valid_neighbors.append(neighbor)
         return valid_neighbors
 
