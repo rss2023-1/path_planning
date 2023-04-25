@@ -194,6 +194,7 @@ class PathPlan(object):
 
         # visualize trajectory Markers
         self.trajectory.publish_viz(duration=5.0)
+        self.trajectory.save("/home/racecar/racecar_ws/src/path_planning/trajectories/generated_path_2.traj")
     
     def check_valid(self, neighbors, map):
         valid_neighbors = []
