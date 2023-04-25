@@ -8,9 +8,8 @@ import rospkg
 import time, os
 from utils import LineTrajectory
 from heapq import heapify, heappop, heappush
-from skimage.morphology import square
-import skimage.morphology
 import math
+from scipy import ndimage
 
 class PathPlan(object):
     """ Listens for goal pose published by RViz and uses it to plan a path from
@@ -125,9 +124,8 @@ class PathPlan(object):
         #print("arr whole", arr)
         #print("arr part", arr[1::2, 1::2])
         
-
-        arr_dil = skimage.morphology.dilation(arr, square(30))
-
+        dilation_factor = np.ones((30, 30))
+        arr_dil = ndimage.binary_dilation(arr, structure=dilation_factor).astype(arr.dtype)
         #uni, counts = np.unique(arr_dil, return_counts=True)
         #print("counts after dil", dict(zip(uni, counts)))
 
