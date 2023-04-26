@@ -13,6 +13,7 @@ from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
 from std_msgs.msg import Header
 from std_msgs.msg import Float32
+from pid_control import PIDController
 
 class PurePursuit(object):
     """ Implements Pure Pursuit trajectory tracking with a fixed lookahead and speed.
@@ -35,6 +36,7 @@ class PurePursuit(object):
         self.reverse = self.reverse_time 
         self.parking_distance = .1 # meters; try playing with this number!
         self.reverse_speed = -0.5
+        self.pid_controller = PIDController(0)
 
 
     def trajectory_callback(self, msg):
@@ -255,7 +257,7 @@ class PurePursuit(object):
                     drive_cmd.drive.acceleration = 0
                     drive_cmd.drive.jerk = 0
                 elif dist > self.parking_distance: # If away from cone, control theta proportionally to align upon closing gap
-                    drive_cmd.drive.steering_angle = theta
+                    drive_cmd.drive.steering_angle = self.pid_controller.call(theta)
                 elif dist < self.parking_distance and abs(theta) <= 0.05: # If too close too cone but aligned, back up
                     drive_cmd.drive.steering_angle = 0
                     drive_cmd.drive.speed = self.reverse_speed
