@@ -20,13 +20,13 @@ class PurePursuit(object):
         self.odom_topic       = rospy.get_param("~odom_topic", "/pf/pose/odom")
         #self.odom_topic       = "/odom"
         self.lookahead        = rospy.get_param("~lookahead_dist", 1.0)
-        self.speed            = rospy.get_param("~pursuit_speed", 1.0)
+        self.speed            = rospy.get_param("~pursuit_speed", 0.5)
         self.wheelbase_length = 0.2 #measure this for sure
         self.parking_distance = 0
         self.trajectory  = utils.LineTrajectory("/followed_trajectory")
         self.traj_sub = rospy.Subscriber("/trajectory/current", PoseArray, self.trajectory_callback, queue_size=1)
         self.odom_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odometry_callback, queue_size=1)
-        self.drive_pub = rospy.Publisher("/drive", AckermannDriveStamped, queue_size=1)
+        self.drive_pub = rospy.Publisher("/vesc/ackermann_cmd_mux/input/navigation", AckermannDriveStamped, queue_size=1)
         self.viz_point = rospy.Publisher("/vizpoint", Marker, queue_size=1)
         self.coordinates = []
         self.reverse_time = 5
