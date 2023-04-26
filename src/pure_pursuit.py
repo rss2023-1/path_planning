@@ -12,6 +12,7 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
 from std_msgs.msg import Header
+from std_msgs.msg import Float32
 
 class PurePursuit(object):
     """ Implements Pure Pursuit trajectory tracking with a fixed lookahead and speed.
@@ -28,6 +29,7 @@ class PurePursuit(object):
         self.odom_sub = rospy.Subscriber(self.odom_topic, Odometry, self.odometry_callback, queue_size=1)
         self.drive_pub = rospy.Publisher("/vesc/ackermann_cmd_mux/input/navigation", AckermannDriveStamped, queue_size=1)
         self.viz_point = rospy.Publisher("/vizpoint", Marker, queue_size=1)
+        self.error_pub = rospy.Publisher("/error", Float32, queue_size=1)
         self.coordinates = []
         self.reverse_time = 5
         self.reverse = self.reverse_time 
@@ -98,6 +100,9 @@ class PurePursuit(object):
             min_distances[i] = dist
         
         indices = np.argsort(min_distances)
+        # Publish for error metric
+        min_dist = min(min_distances)
+        self.error_pub.publish(min_dist)
         goal_point = self.lookahead_intersection(point, indices, line_segments, odom.pose.pose)
         if self.validPoint(goal_point):
             robot_point = self.world_to_robot(odom.pose.pose, goal_point)
